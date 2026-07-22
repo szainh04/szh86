@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barça Nyheter | Siste Oppdateringer</title>
+    <style>
+        :root {
+            --barca-blue: #004d98;
+            --barca-red: #a50044;
+            --barca-gold: #edbb00;
+            --dark-bg: #0a0a0a;
+            --card-bg: #161616;
+            --text-white: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-white);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            background: linear-gradient(90deg, var(--barca-blue), var(--barca-red));
+            padding: 20px 0;
+            text-align: center;
+            border-bottom: 6px solid var(--barca-gold);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .container {
+            max-width: 900px;
+            width: 95%;
+            margin: 30px 0;
+        }
+
+        .status-bar {
+            text-align: center;
+            margin-bottom: 20px;
+            font-style: italic;
+            color: var(--barca-gold);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #refresh-btn {
+            background-color: var(--barca-gold);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        #refresh-btn:hover {
+            background-color: white;
+            transform: scale(1.05);
+        }
+
+        #news-container {
+            display: grid;
+            gap: 20px;
+        }
+
+        .article {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 8px solid var(--barca-blue);
+            transition: 0.3s;
+            text-decoration: none;
+            color: white;
+            display: block;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .article:hover {
+            transform: scale(1.02);
+            border-left-color: var(--barca-gold);
+            background-color: #222;
+        }
+
+        .article h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.3rem;
+            color: var(--barca-gold);
+        }
+
+        .article .meta {
+            font-size: 0.85rem;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .sources {
+            margin-top: 40px;
+            text-align: center;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 15px;
+            width: 100%;
+        }
+
+        .sources a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: bold;
+            border-bottom: 2px solid var(--barca-gold);
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-top: 50px;
+            color: var(--barca-gold);
+        }
+
+        .error-box {
+            background: #441111;
+            color: #ffcccc;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid red;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔵🔴 FC BARCELONA NYHETER 🔴🔵</h1>
+    </header>
+
+    <div class="container">
+        <div class="status-bar">
+            <span id="statusText">Klar til oppdatering...</span>
+            <button id="refresh-btn" onclick="loadBarcelonaNews()">🔄 Oppdater nyheter</button>
+        </div>
+
+        <div id="loading">Henter ferske nyheter fra Camp Nou...</div>
+        <div id="news-container"></div>
+
+        <div class="sources">
+            <h3 style="color: white;">Anerkjente kilder:</h3>
+            <a href="https://www.fcbarcelona.com" target="_blank">Offisielle Side</a>
+            <a href="https://www.sport.es/fc-barcelona" target="_blank">Sport.es</a>
+            <a href="https://www.mundodeportivo.com" target="_blank">Mundo Deportivo</a>
+        </div>
+    </div>
+
+    <script>
+        async function loadBarcelonaNews() {
+            const container = document.getElementById('news-container');
+            const loader = document.getElementById('loading');
+            const statusText = document.getElementById('statusText');
+
+            // Nullstill visning
+            container.innerHTML = '';
+            loader.style.display = 'block';
+            loader.innerText = "Søker etter siste nyheter...";
+            statusText.innerText = "Henter data...";
+
+            const query = 'FC Barcelona football';
+            const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=no&gl=NO&ceid=NO:no`;
+            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
+            try {
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    throw new Error(`Nettverkssvar var ikke OK: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    loader.style.display = 'none';
+                    statusText.innerText = "Siste oppdatering: " + new Date().toLocaleTimeString();
+
+                    if (data.items.length === 0) {
+                        loader.innerText = "Fant ingen nyheter akkurat nå. Prøv igjen senere.";
+                        return;
+                    }
+
+                    data.items.forEach(item => {
+                        const date = new Date(item.pubDate).toLocaleDateString('no-NO');
+
+                        const article = document.createElement('a');
+                        article.className = 'article';
+                        article.href = item.link;
+                        article.target = '_blank';
+
+                        article.innerHTML = `
+                            <h3>${item.title}</h3>
+                            <div class="meta">
+                                <span>📰 ${item.author || 'Kilde: Fotballnyheter'}</span>
+                                <span>📅 ${date}</span>
+                            </div>
+                        `;
+                        container.appendChild(article);
+                    });
+                } else {
+                    throw new Error(data.message || "API returnerte ikke OK status");
+                }
+            } catch (error) {
+                loader.style.display = 'none';
+                statusText.innerText = "Feil oppstod.";
+
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-box';
+                errorDiv.innerHTML = `
+                    <strong>Opps! Noe gikk galt.</strong><br>
+                    ${error.message}<br>
+                    <small>Dette kan skyldes midlertidig problem med nyhetstjenesten eller nettverket ditt.</small>
+                `;
+                container.appendChild(errorDiv);
+                console.error("Detaljert feil:", error);
+            }
+        }
+
+        // Start ved oppstart
+        window.onload = loadBarcelonaNews;
+    </script>
+
+</body>
+</html>
