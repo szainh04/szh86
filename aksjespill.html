@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BørsMester - Lær Investering</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --gold: #f59e0b;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--card-bg);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-blue);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+        .stats { display: flex; gap: 20px; }
+        .stat-item { text-align: center; }
+        .stat-value { font-weight: bold; font-size: 1.2rem; color: var(--gold); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+
+        /* News Ticker */
+        #news-ticker {
+            background: #334155;
+            color: white;
+            padding: 8px;
+            font-size: 0.9rem;
+            text-align: center;
+            font-style: italic;
+            border-bottom: 1px solid #475569;
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            padding-bottom: 80px;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Asset Cards */
+        .asset-list { display: grid; gap: 10px; }
+        .asset-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.1s;
+            border: 1px solid #334155;
+        }
+        .asset-info h3 { margin: 0; font-size: 1rem; }
+        .asset-info p { margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-muted); }
+        .asset-price-box { text-align: right; }
+        .price { font-weight: bold; font-size: 1.1rem; }
+        .trend-up { color: var(--accent-green); }
+        .trend-down { color: var(--accent-red); }
+
+        .btn-group { display: flex; gap: 5px; margin-top: 10px; }
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        .btn-buy { background: var(--accent-green); color: white; flex: 1; }
+        .btn-sell { background: var(--accent-red); color: white; flex: 1; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Learning Mode */
+        .learning-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .learning-card h3 { color: var(--accent-blue); margin-top: 0; }
+        .tip { background: #0ea5e922; border-left: 4px solid var(--accent-blue); padding: 10px; font-size: 0.9rem; }
+
+        /* Bottom Navigation */
+        nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: var(--card-bg);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-top: 1px solid #334155;
+        }
+        .nav-item {
+            background: none;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .nav-item.active { color: var(--accent-blue); }
+        .nav-item span { font-size: 1.2rem; }
+
+        /* Animations */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(-1deg); }
+            40% { transform: translate(3px, 2px) rotate(1deg); }
+            60% { transform: translate(-1px, -1px) rotate(1deg); }
+            80% { transform: translate(-3px, 1px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake { animation: shake 0.5s; }
+
+        /* Game Over Overlay */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+        }
+    </style>
+</head>
+<body id="game-body">
+
+<header>
+    <div class="stat-item">
+        <div class="stat-label">Kapital</div>
+        <div class="stat-value" id="balance">10 000 kr</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">Dag</div>
+        <div class="stat-value" id="day">1/20</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-label">Verdi</div>
+        <div class="stat-value" id="total-wealth">10 000 kr</div>
+    </div>
+</header>
+
+<div id="news-ticker">Velkommen til BørsMester! Begynn å investere for å vokse kapitalen din.</div>
+
+<main>
+    <!-- Market Tab -->
+    <div id="market" class="tab-content active">
+        <div class="asset-list" id="asset-container"></div>
+    </div>
+
+    <!-- Portfolio Tab -->
+    <div id="portfolio" class="tab-content">
+        <div class="asset-list" id="portfolio-container">
+            <p style="text-align: center; color: var(--text-muted);">Du eier ingen aksjer ennå.</p>
+        </div>
+    </div>
+
+    <!-- Learning Tab -->
+    <div id="learning" class="tab-content">
+        <div class="learning-card">
+            <h3 style="color: var(--accent-blue);">📈 Hvordan optimalisere?</h3>
+            <p>For å tjene mest mulig penger, bør du ikke legge alle eggene i én kurv. Dette kalles <b>diversifisering</b>.</p>
+            <div class="tip"><b>Tips:</b> Kjøp en blanding av et trygt fond og 1-2 spennende enkeltaksjer.</div>
+        </div>
+        <div class="learning-card">
+            <h3 style="color: var(--accent-blue);">📉 "Kjøpe på dippen"</h3>
+            <p>Når en god aksje plutselig faller i verdi på grunn av en kortvarig nyhet, kan det være et perfekt tidspunkt å kjøpe billig før den stiger igjen.</p>
+        </div>
+        <div class="learning-card">
+            <h3 style="color: var(--accent-blue);">📚 Begreper du må kunne</h3>
+            <p><b>Aksje:</b> En eierandel i ett firma. Høy risiko, høy potensiell gevinst.</p>
+            <p><b>Fond:</b> En samling av mange aksjer. Lavere risiko fordi svingningene utjevnes.</p>
+            <p><b>Volatilitet:</b> Hvor mye prisen hopper opp og ned. Tesla er mer volatil enn DNB.</p>
+        </div>
+    </div>
+</main>
+
+<nav>
+    <button class="nav-item active" onclick="showTab('market', this)"><span>🏦</span>Marked</button>
+    <button class="nav-item" onclick="showTab('portfolio', this)"><span>💼</span>Portefølje</button>
+    <button class="nav-item" onclick="showTab('learning', this)"><span>🎓</span>Lær</button>
+</nav>
+
+<div id="overlay">
+    <h1 style="color: var(--gold); font-size: 3rem;">Spillet er slutt!</h1>
+    <p id="final-result" style="font-size: 1.5rem;"></p>
+    <button onclick="location.reload()" style="background: var(--accent-blue); color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 6px; cursor: pointer;">Spill på nytt</button>
+</div>
+
+<script>
+    // --- KONFIGURASJON ---
+    const INITIAL_BALANCE = 10000;
+    const MAX_DAYS = 20;
+    const DAY_DURATION = 30000; // 30 sekunder
+
+    let gameState = {
+        balance: INITIAL_BALANCE,
+        day: 1,
+        portfolio: {},
+        totalWealth: INITIAL_BALANCE
+    };
+
+    const assets = [
+        // Internasjonale giganter
+        { id: 'aapl', name: 'Apple', price: 180, type: 'stock', volatility: 0.05, sector: 'tech' },
+        { id: 'tsla', name: 'Tesla', price: 200, type: 'stock', volatility: 0.12, sector: 'tech' },
+        { id: 'msft', name: 'Microsoft', price: 400, type: 'stock', volatility: 0.04, sector: 'tech' },
+        { id: 'nvda', name: 'NVIDIA', price: 800, type: 'stock', volatility: 0.15, sector: 'tech' },
+        { id: 'googl', name: 'Alphabet', price: 140, type: 'stock', volatility: 0.06, sector: 'tech' },
+        { id: 'amzn', name: 'Amazon', price: 170, type: 'stock', volatility: 0.07, sector: 'tech' },
+        { id: 'meta', name: 'Meta', price: 480, type: 'stock', volatility: 0.10, sector: 'tech' },
+        { id: 'dis', name: 'Disney', price: 100, type: 'stock', volatility: 0.08, sector: 'media' },
+        { id: 'ko', name: 'Coca-Cola', price: 60, type: 'stock', volatility: 0.02, sector: 'consumer' },
+        { id: 'tm', name: 'Toyota', price: 230, type: 'stock', volatility: 0.04, sector: 'auto' },
+
+        // Norske selskaper
+        { id: 'eqnr', name: 'Equinor', price: 300, type: 'stock', volatility: 0.06, sector: 'energy' },
+        { id: 'dnb', name: 'DNB', price: 210, type: 'stock', volatility: 0.03, sector: 'finance' },
+        { id: 'mowi', name: 'Mowi', price: 180, type: 'stock', volatility: 0.09, sector: 'fish' },
+        { id: 'yara', name: 'Yara', price: 350, type: 'stock', volatility: 0.07, sector: 'agri' },
+        { id: 'aker', name: 'Aker BP', price: 280, type: 'stock', volatility: 0.07, sector: 'energy' },
+        { id: 'telenor', name: 'Telenor', price: 120, type: 'stock', volatility: 0.03, sector: 'telecom' },
+        { id: 'orkla', name: 'Orkla', price: 70, type: 'stock', volatility: 0.02, sector: 'consumer' },
+        { id: 'novo', name: 'Novo Nordisk', price: 900, type: 'stock', volatility: 0.06, sector: 'health' },
+        { id: 'lvmh', name: 'LVMH', price: 700, type: 'stock', volatility: 0.05, sector: 'luxury' },
+        { id: 'sams', name: 'Samsung', price: 60, type: 'stock', volatility: 0.08, sector: 'tech' },
+
+        // Fond
+        { id: 'fund_tech', name: 'Teknologifond', price: 1000, type: 'fund', volatility: 0.03, sector: 'tech' },
+        { id: 'fund_green', name: 'Miljøfond', price: 1000, type: 'fund', volatility: 0.03, sector: 'energy' },
+        { id: 'fund_nor', name: 'Norgefond', price: 1000, type: 'fund', volatility: 0.02, sector: 'mixed' },
+    ];
+
+    const newsEvents = [
+        { text: "NVIDIA lanserer ny superchip! AI-aksjer skyter i været!", target: 'tech', impact: 0.15 },
+        { text: "Salgstallene for laks faller drastisk. Mowi og sektoren rød!", target: 'fish', impact: -0.12 },
+        { text: "Norges Bank setter opp renten. Bankene smiler, tech svinger.", target: 'finance', impact: 0.05, other: {sector: 'tech', impact: -0.05} },
+        { text: "Tesla avslører ny billigmodell. Markedet reagerer positivt!", target: 'tsla', impact: 0.12 },
+        { text: "Oljeprisen stiger kraftig på grunn av uro i Midtøsten.", target: 'energy', impact: 0.08 },
+        { text: "Apple får store problemer med leverandører i Kina.", target: 'aapl', impact: -0.10 },
+        { text: "Ny miljølov i EU favoriserer fornybar energi!", target: 'energy', impact: 0.06 },
+        { text: "Globalt børskrasj! Panikk selges overalt!", target: 'all', impact: -0.15 },
+        { text: "Kinesisk økonomi vokser raskere enn ventet. Luksusvarer stiger.", target: 'luxury', impact: 0.07 },
+        { text: "Smarte nyheter: Microsoft og OpenAI lanserer ny revolusjon!", target: 'tech', impact: 0.10 },
+    ];
+
+    // --- LOGIKK ---
+
+    function showTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function updateWealth() {
+        let assetValue = 0;
+        assets.forEach(a => {
+            if (gameState.portfolio[a.id]) {
+                assetValue += gameState.portfolio[a.id] * a.price;
+            }
+        });
+        gameState.totalWealth = gameState.balance + assetValue;
+        document.getElementById('balance').innerText = `${Math.round(gameState.balance).toLocaleString()} kr`;
+        document.getElementById('total-wealth').innerText = `${Math.round(gameState.totalWealth).toLocaleString()} kr`;
+    }
+
+    function buyAsset(id) {
+        const asset = assets.find(a => a.id === id);
+        if (gameState.balance >= asset.price) {
+            gameState.balance -= asset.price;
+            gameState.portfolio[id] = (gameState.portfolio[id] || 0) + 1;
+            updateWealth();
+            renderMarket();
+            renderPortfolio();
+        }
+    }
+
+    function sellAsset(id) {
+        const asset = assets.find(a => a.id === id);
+        if (gameState.portfolio[id] > 0) {
+            gameState.balance += asset.price;
+            gameState.portfolio[id]--;
+            updateWealth();
+            renderMarket();
+            renderPortfolio();
+        }
+    }
+
+    function triggerNews() {
+        const event = newsEvents[Math.floor(Math.random() * newsEvents.length)];
+        document.getElementById('news-ticker').innerText = `🔔 ${event.text}`;
+
+        assets.forEach(a => {
+            if (event.target === 'all' || event.target === a.id || event.target === a.sector) {
+                a.price *= (1 + event.impact);
+            }
+            if (event.other && event.other.sector === a.sector) {
+                a.price *= (1 + event.other.impact);
+            }
+        });
+
+        if (event.impact < -0.1) {
+            document.body.classList.add('shake');
+            setTimeout(() => document.body.classList.remove('shake'), 500);
+        }
+
+        updateWealth();
+        renderMarket();
+        renderPortfolio();
+    }
+
+    function updatePrices() {
+        assets.forEach(a => {
+            const change = (Math.random() * 2 - 1) * a.volatility;
+            a.price *= (1 + change);
+            if (a.price < 1) a.price = 1;
+        });
+        updateWealth();
+        renderMarket();
+        renderPortfolio();
+    }
+
+    function renderMarket() {
+        const container = document.getElementById('asset-container');
+        container.innerHTML = '';
+
+        assets.forEach(a => {
+            const card = document.createElement('div');
+            card.className = 'asset-card';
+            card.innerHTML = `
+                <div class="asset-info">
+                    <h3>${a.name} ${a.type === 'fund' ? '🧺' : '🚀'}</h3>
+                    <p>${a.type === 'fund' ? 'Fond (Lav risiko)' : 'Aksje (Høy risiko)'}</p>
+                </div>
+                <div class="asset-price-box">
+                    <div class="price">${Math.round(a.price)} kr</div>
+                    <div class="btn-group">
+                        <button class="btn-buy" onclick="buyAsset('${a.id}')" ${gameState.balance < a.price ? 'disabled' : ''}>Kjøp</button>
+                        <button class="btn-sell" onclick="sellAsset('${a.id}')" ${!gameState.portfolio[a.id] ? 'disabled' : ''}>Selg</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderPortfolio() {
+        const container = document.getElementById('portfolio-container');
+        const owned = Object.entries(gameState.portfolio).filter(([id, qty]) => qty > 0);
+
+        if (owned.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Du eier ingen aksjer ennå.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        owned.forEach(([id, qty]) => {
+            const asset = assets.find(a => a.id === id);
+            const card = document.createElement('div');
+            card.className = 'asset-card';
+            card.innerHTML = `
+                <div class="asset-info">
+                    <h3>${asset.name}</h3>
+                    <p>Antall: ${qty}</p>
+                </div>
+                <div class="asset-price-box">
+                    <div class="price">${Math.round(asset.price * qty)} kr</div>
+                    <button class="btn-sell" onclick="sellAsset('${id}')">Selg én</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // Game Loop
+    const gameInterval = setInterval(() => {
+        gameState.day++;
+        document.getElementById('day').innerText = `${gameState.day}/${MAX_DAYS}`;
+
+        updatePrices();
+
+        // Sjanse for nyheter hver dag
+        if (Math.random() > 0.6) triggerNews();
+
+        if (gameState.day >= MAX_DAYS) {
+            clearInterval(gameInterval);
+            endGame();
+        }
+    }, DAY_DURATION);
+
+    function endGame() {
+        document.getElementById('overlay').style.display = 'flex';
+        const profit = gameState.totalWealth - INITIAL_BALANCE;
+        const resultText = profit >= 0
+            ? `Du endte med ${Math.round(gameState.totalWealth).toLocaleString()} kr. En gevinst på ${Math.round(profit).toLocaleString()} kr! 🎉`
+            : `Du endte med ${Math.round(gameState.totalWealth).toLocaleString()} kr. Du tapte ${Math.abs(Math.round(profit)).toLocaleString()} kr. 📉`;
+        document.getElementById('final-result').innerText = resultText;
+    }
+
+    // Initial Start
+    updateWealth();
+    renderMarket();
+    renderPortfolio();
+
+</script>
+
+</body>
+</html>
