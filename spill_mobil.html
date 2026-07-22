@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Teenieping Dash Mobile!</title>
+    <style>
+        :root {
+            --bg-color: #f0faff;
+            --primary-pink: #ffc0cb;
+            --accent-purple: #d8b2ff;
+            --ground-color: #b19cd9;
+            --text-color: #5d5d5d;
+            --ui-panel: rgba(255, 255, 255, 0.9);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-touch-callout: none; /* Prevent callout on iOS */
+            -webkit-user-select: none;   /* Prevent selection */
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'cursive', sans-serif;
+            overflow: hidden;
+            color: var(--text-color);
+            touch-action: none; /* Disable default browser touch actions like zoom/scroll */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 800px;
+            max-height: 450px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #a1c4fd 0%, #c2e9fb 100%);
+            border: 6px solid white;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--ui-panel);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            text-align: center;
+            padding: 20px;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            color: #ff69b4;
+            font-size: clamp(24px, 8vw, 42px);
+            text-shadow: 2px 2px white;
+            margin-bottom: 20px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            border-radius: 50px;
+            background-color: var(--primary-pink);
+            color: white;
+            box-shadow: 0 4px 0 #e08aa0;
+            transition: all 0.1s;
+            min-width: 140px;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0;
+            background-color: #ffb6c1;
+        }
+
+        #stats {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: clamp(16px, 5vw, 24px);
+            font-weight: bold;
+            color: #ff69b4;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .lives-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            width: 25px;
+            height: 25px;
+            background-color: #ff4d6d;
+            clip-path: path('M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13 3.81 14.66 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
+        }
+
+        .heart.lost {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="ui-layer">
+            <div id="stats">
+                <div class="lives-container" id="lives">
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                    <div class="heart"></div>
+                </div>
+                <div id="score">Poeng: 0</div>
+            </div>
+
+            <div id="start-screen" class="overlay">
+                <h1>Teenieping Dash! 🌟</h1>
+                <p>Velg vanskelighetsgrad:</p>
+                <div class="menu-buttons">
+                    <button onclick="startGame('easy')">Lett</button>
+                    <button onclick="startGame('medium')">Middels</button>
+                    <button onclick="startGame('hard')">Vanskelig</button>
+                </div>
+                <p style="margin-top: 20px; font-size: 14px;">Trykk på skjermen for å hoppe!</p>
+            </div>
+
+            <div id="game-over-screen" class="overlay hidden">
+                <h1 id="final-status">Spillet er slutt! 🌸</h1>
+                <p id="final-score">Poeng: 0</p>
+                <button onclick="resetGame()">Prøv igjen!</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const livesContainer = document.getElementById('lives');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreElement = document.getElementById('final-score');
+        const finalStatusElement = document.getElementById('final-status');
+
+        // Use a fixed internal resolution for consistent gameplay across devices
+        const V_WIDTH = 800;
+        const V_HEIGHT = 400;
+
+        function resize() {
+            canvas.width = V_WIDTH;
+            canvas.height = V_HEIGHT;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -12;
+        const GROUND_Y = 320;
+
+        let gameState = 'menu';
+        let score = 0;
+        let lives = 3;
+        let gameSpeed = 5;
+        let obstacles = [];
+        let animationId;
+        let frameCount = 0;
+        let difficulty = 'easy';
+
+        const player = {
+            x: 100,
+            y: GROUND_Y - 40,
+            width: 40,
+            height: 40,
+            dy: 0,
+            jumping: false,
+            invincibleFrames: 0
+        };
+
+        function drawTeenieping(x, y, width, height, isInvincible) {
+            if (isInvincible && Math.floor(Date.now() / 100) % 2 === 0) return;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.fillStyle = '#ffc0cb';
+            ctx.beginPath();
+            ctx.ellipse(width/2, height/2, width/2, height/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ff8da1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(width * 0.35, height * 0.4, 4, 0, Math.PI * 2);
+            ctx.arc(width * 0.65, height * 0.4, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 182, 193, 0.8)';
+            ctx.beginPath();
+            ctx.arc(width * 0.2, height * 0.55, 3, 0, Math.PI * 2);
+            ctx.arc(width * 0.8, height * 0.55, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.moveTo(width * 0.3, 0);
+            ctx.lineTo(width * 0.4, -10);
+            ctx.lineTo(width * 0.5, 0);
+            ctx.lineTo(width * 0.6, -10);
+            ctx.lineTo(width * 0.7, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(width/2, height * 0.6, 4, 0, Math.PI);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawObstacle(obs) {
+            ctx.fillStyle = '#ff69b4';
+            if (obs.type === 'spike') {
+                ctx.beginPath();
+                ctx.moveTo(obs.x, GROUND_Y);
+                ctx.lineTo(obs.x + obs.width / 2, GROUND_Y - obs.height);
+                ctx.lineTo(obs.x + obs.width, GROUND_Y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#c71585';
+                ctx.stroke();
+            } else {
+                ctx.fillRect(obs.x, GROUND_Y - obs.height, obs.width, obs.height);
+                ctx.strokeStyle = '#c71585';
+                ctx.strokeRect(obs.x, GROUND_Y - obs.height, obs.width, obs.height);
+            }
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#b19cd9';
+            ctx.fillRect(0, GROUND_Y, V_WIDTH, V_HEIGHT - GROUND_Y);
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, GROUND_Y);
+            ctx.lineTo(V_WIDTH, GROUND_Y);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            const time = Date.now() * 0.001;
+            for (let i = 0; i < 5; i++) {
+                let cx = (i * 200 + time * 20) % (V_WIDTH + 100) - 50;
+                let cy = 50 + Math.sin(time + i) * 20;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+                ctx.arc(cx + 20, cy, 25, 0, Math.PI * 2);
+                ctx.arc(cx - 20, cy, 25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function updatePlayer() {
+            player.dy += GRAVITY;
+            player.y += player.dy;
+
+            if (player.y > GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.dy = 0;
+                player.jumping = false;
+            }
+
+            if (player.invincibleFrames > 0) player.invincibleFrames--;
+        }
+
+        function spawnObstacles() {
+            frameCount++;
+            let spawnRate = 100;
+            if (difficulty === 'medium') spawnRate = 70;
+            if (difficulty === 'hard') spawnRate = 50;
+
+            if (frameCount % spawnRate === 0) {
+                const type = Math.random() > 0.5 ? 'spike' : 'block';
+                obstacles.push({
+                    x: V_WIDTH,
+                    width: 30 + Math.random() * 20,
+                    height: 30 + Math.random() * 30,
+                    type: type
+                });
+            }
+        }
+
+        function updateObstacles() {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= gameSpeed;
+
+                if (
+                    player.x < obstacles[i].x + obstacles[i].width &&
+                    player.x + player.width > obstacles[i].x &&
+                    player.y < GROUND_Y &&
+                    player.y + player.height > GROUND_Y - obstacles[i].height
+                ) {
+                    if (player.invincibleFrames === 0) {
+                        lives--;
+                        player.invincibleFrames = 60;
+                        updateLivesUI();
+                        if (lives <= 0) endGame();
+                    }
+                }
+
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreElement.innerText = `Poeng: ${score}`;
+                }
+            }
+        }
+
+        function updateLivesUI() {
+            const hearts = livesContainer.children;
+            for (let i = 0; i < hearts.length; i++) {
+                if (i >= lives) {
+                    hearts[i].classList.add('lost');
+                } else {
+                    hearts[i].classList.remove('lost');
+                }
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT);
+            drawBackground();
+            updatePlayer();
+            drawTeenieping(player.x, player.y, player.width, player.height, player.invincibleFrames > 0);
+            spawnObstacles();
+            updateObstacles();
+            obstacles.forEach(drawObstacle);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame(diff) {
+            difficulty = diff;
+            gameState = 'playing';
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+
+            if (diff === 'easy') gameSpeed = 5;
+            if (diff === 'medium') gameSpeed = 7;
+            if (diff === 'hard') gameSpeed = 9;
+
+            score = 0;
+            lives = 3;
+            obstacles = [];
+            frameCount = 0;
+            scoreElement.innerText = `Poeng: 0`;
+            updateLivesUI();
+
+            gameLoop();
+        }
+
+        function endGame() {
+            gameState = 'over';
+            cancelAnimationFrame(animationId);
+            gameOverScreen.classList.remove('hidden');
+            finalScoreElement.innerText = `Du fikk ${score} poeng!`;
+            finalStatusElement.innerText = score > 20 ? "Fantastisk! 🌈" : "Prøv igjen! 🌸";
+        }
+
+        function resetGame() {
+            gameOverScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+        function handleJump(e) {
+            if (e) e.preventDefault();
+            if (!player.jumping && gameState === 'playing') {
+                player.dy = JUMP_FORCE;
+                player.jumping = true;
+            }
+        }
+
+        // Keyboard support
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                handleJump();
+            }
+        });
+
+        // Touch support for mobile
+        window.addEventListener('touchstart', (e) => {
+            if (gameState === 'playing') {
+                handleJump(e);
+            }
+        }, { passive: false });
+
+        drawBackground();
+    </script>
+</body>
+</html>
